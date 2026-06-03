@@ -1,0 +1,9 @@
+# Normalise all text files to LF in the repo (CI runs on Linux).
+* text=auto eol=lf
+
+# Binary assets — never line-ending munged.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

@@ -1,0 +1,39 @@
+{
+  "name": "playwright-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cross-browser end-to-end test suite for saadm.dev, built with Playwright. Runs in GitHub Actions on every push, on a nightly schedule, and on demand.",
+  "homepage": "https://saadm.dev/",
+  "author": {
+    "name": "Muhammad Saad",
+    "email": "saad@saadm.dev",
+    "url": "https://saadm.dev/"
+  },
+  "license": "MIT",
+  "keywords": [
+    "playwright",
+    "end-to-end-testing",
+    "e2e",
+    "test-automation",
+    "qa-automation",
+    "cross-browser-testing",
+    "github-actions",
+    "typescript"
+  ],
+  "scripts": {
+    "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen https://saadm.dev"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0"
+  }
+}
