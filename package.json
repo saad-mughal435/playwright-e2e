@@ -22,6 +22,8 @@
   ],
   "scripts": {
     "test": "playwright test",
+    "test:site": "playwright test --project=chromium --project=firefox --project=webkit --project=mobile-chrome --project=mobile-safari",
+    "test:api": "playwright test --project=api",
     "test:chromium": "playwright test --project=chromium",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
@@ -33,6 +35,7 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.0"
   }

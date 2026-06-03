@@ -8,8 +8,12 @@ Cross-browser **end-to-end test automation** for [saadm.dev](https://saadm.dev),
 built with [Playwright](https://playwright.dev) + TypeScript and run in GitHub
 Actions on every push, on a nightly schedule, and on demand.
 
-By default the suite targets the **live production site**, so a green run is
-also a uptime + regression check for the real deployment.
+By default the suite targets **live production**, so a green run is also an
+uptime + regression check for the real deployments:
+
+- **Site (browser E2E + a11y):** [saadm.dev](https://saadm.dev)
+- **API:** the [ShopFloor API](https://github.com/saad-mughal435/shopfloor-api),
+  a Spring Boot 3 backend on a free Render instance
 
 ## What it covers
 
@@ -22,13 +26,19 @@ also a uptime + regression check for the real deployment.
 | `contact.spec.ts` | Contact form fields, required/typed validation contract, and honeypot — **without submitting** |
 | `projects.spec.ts` | All 11 interactive project demos load and render real content |
 | `pwa.spec.ts` | The Lahza PWA ships a valid web app manifest and a reachable service worker |
+| `a11y.spec.ts` | No critical/serious axe-core (WCAG 2.0/2.1 A & AA) violations on the homepage + contact page |
+| `api/shopfloor.spec.ts` | Live ShopFloor API — health, OpenAPI, JWT auth (valid → token, invalid → 401, unauth → 401), and read-only domain reads (lines, rolling OEE, job orders, inventory, QC holds) |
 
-## Browsers / devices
+The API tests are **read-only** (login + `GET` only) and never mutate the demo
+data; the free instance can cold-start (~50s), which a warm-up hook absorbs.
 
-Every spec runs across five projects:
+## Projects (browsers / devices)
 
-- **Desktop** — Chromium, Firefox, WebKit
-- **Mobile (emulated)** — Pixel 7, iPhone 14
+- **Browser E2E** runs across five projects — **Desktop** Chromium / Firefox /
+  WebKit and **emulated mobile** Pixel 7 / iPhone 14.
+- **Accessibility** runs once on desktop Chromium (axe results are
+  engine-independent).
+- **API** runs in its own browserless `api` project against the ShopFloor API.
 
 ## Running locally
 
@@ -36,7 +46,9 @@ Every spec runs across five projects:
 npm ci
 npx playwright install        # download browser binaries
 
-npm test                      # all specs, all browsers
+npm test                      # everything (browsers + API)
+npm run test:site             # browser E2E + a11y, all browsers
+npm run test:api              # ShopFloor API tests only
 npm run test:chromium         # fastest: Chromium only
 npm run test:ui               # interactive UI mode
 npm run report                # open the last HTML report
@@ -44,12 +56,14 @@ npm run report                # open the last HTML report
 
 ### Targeting a different environment
 
-The base URL is configurable, so the same suite can run against a local copy of
-the site:
+Both targets are configurable, so the same suite can run against local copies:
 
 ```bash
-# in the site repo: python -m http.server 8000
-BASE_URL=http://127.0.0.1:8000 npx playwright test
+# site: in the site repo, run `python -m http.server 8000`
+BASE_URL=http://127.0.0.1:8000 npm run test:site
+
+# API: point at a locally running ShopFloor API
+API_BASE_URL=http://localhost:8080 npm run test:api
 ```
 
 ## CI
@@ -74,4 +88,4 @@ artifact (kept 14 days). It triggers on:
 
 ## Tech
 
-Playwright Test · TypeScript · Node 18+ · GitHub Actions
+Playwright Test (browser + API) · axe-core · TypeScript · Node 18+ · GitHub Actions
