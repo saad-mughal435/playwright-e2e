@@ -23,6 +23,9 @@ async function getToken(ctx: APIRequestContext): Promise<string> {
 test.describe('ShopFloor API', () => {
   // Wake the free-tier instance before the assertions (cold start ~50s).
   test.beforeAll(async () => {
+    // The free Render instance can take ~50s to cold-start; without this the
+    // default 30s hook timeout kills the wake-up loop before the API responds.
+    test.setTimeout(150_000);
     const ctx = await request.newContext({ baseURL: API_BASE });
     for (let attempt = 0; attempt < 6; attempt++) {
       try {
