@@ -46,6 +46,10 @@ const IGNORE = [
 const EXPECTED_404 = /\/api\/\w+\/ai\//;
 
 test.describe('site sweep - no runtime errors on any page', () => {
+  // Error sweep, not a rendering check - one engine is enough, and 39 pages
+  // x 5 projects would add ~10 CI minutes for no extra signal.
+  test.skip(({ browserName, isMobile }) => browserName !== 'chromium' || !!isMobile, 'sweep runs on desktop Chromium only');
+
   for (const path of PAGES) {
     test(`clean load: ${path}`, async ({ page, baseURL }) => {
       const pageErrors: string[] = [];

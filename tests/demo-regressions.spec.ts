@@ -7,6 +7,15 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('demo regressions (site v5.9.5)', () => {
+  // These reproduce the original bug conditions, which are desktop-Chromium
+  // specific: the Sanad collapse only occurs where the fx layer loads (fine
+  // pointer, >=1024px), and the POS/MES flows use desktop layouts. Running
+  // them on mobile/other engines tests different conditions than the bugs.
+  test.skip(
+    ({ browserName, isMobile }) => browserName !== 'chromium' || !!isMobile,
+    'regression conditions are desktop-Chromium specific'
+  );
+
   test('POS: an order sent from the terminal appears on the kitchen display', async ({ page }) => {
     // Bug: the generic /orders/:id mock route shadowed /orders/kitchen, so the
     // KDS polled an eternal not_found while admin showed orders "in kitchen".
