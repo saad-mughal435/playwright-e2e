@@ -13,7 +13,7 @@ import AxeBuilder from '@axe-core/playwright';
  * ships a light/dark toggle and contrast can regress independently per theme.
  */
 const BLOCKING_IMPACTS = ['critical', 'serious'];
-const PATHS = ['/', '/contact.html'];
+const PATHS = ['/', '/contact.html', '/demo.html'];
 
 async function expectNoBlockingViolations(page: Page, path: string) {
   await page.goto(path);
