@@ -21,7 +21,7 @@ export default defineConfig({
 
   // Live network targets, so allow a couple of retries in CI to absorb
   // transient blips (and free-tier API cold starts) without hiding regressions.
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 3 : 0,
   workers: process.env.CI ? 4 : undefined,
 
   reporter: process.env.CI

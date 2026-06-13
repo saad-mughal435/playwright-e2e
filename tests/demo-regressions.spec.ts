@@ -3,38 +3,43 @@ import { test, expect } from '@playwright/test';
 /**
  * Regression net for four real bugs found 2026-06-11 by a manual browser
  * deep-check that this suite had missed (fixed in site v5.9.5). Each test
- * pins the exact failure mode so it cannot silently return.
+ * pins the exact failure mode.
+ *
+ * These use web-first assertions / explicit waits for the condition under
+ * test (never fixed sleeps), so they are deterministic against a live,
+ * sometimes-slow production target rather than timing-dependent.
  */
 
 test.describe('demo regressions (site v5.9.5)', () => {
-  // These reproduce the original bug conditions, which are desktop-Chromium
-  // specific: the Sanad collapse only occurs where the fx layer loads (fine
-  // pointer, >=1024px), and the POS/MES flows use desktop layouts. Running
-  // them on mobile/other engines tests different conditions than the bugs.
+  // The original bug conditions are desktop-Chromium specific: the Sanad
+  // collapse only happens where the fx layer loads (fine pointer, >=1024px),
+  // and the POS/MES flows use desktop layouts. Other engines/mobile would
+  // exercise different conditions than the bugs, so scope to desktop Chromium.
   test.skip(
     ({ browserName, isMobile }) => browserName !== 'chromium' || !!isMobile,
     'regression conditions are desktop-Chromium specific'
   );
 
-  test('POS: an order sent from the terminal appears on the kitchen display', async ({ page }) => {
-    // Bug: the generic /orders/:id mock route shadowed /orders/kitchen, so the
-    // KDS polled an eternal not_found while admin showed orders "in kitchen".
-    await page.goto('/pos/terminal.html');
-    await page.getByText('Manager').first().click().catch(() => {});
-    for (const digit of ['1', '2', '3', '4']) {
-      await page.locator(`button:has-text("${digit}")`).first().click().catch(() => {});
-    }
-    await page.waitForTimeout(1500);
-    // Whether or not the order send succeeds in this run, the KDS endpoint
-    // itself must resolve - that is the regression.
+  test('POS: the kitchen-display route is not shadowed by the generic order route', async ({ page }) => {
+    // Bug: the generic /orders/:id mock route matched /orders/kitchen first, so
+    // the KDS polled an eternal not_found. Loading any POS page registers the
+    // fetch-intercepting mock (pos/js/app.js); probing the route directly is a
+    // deterministic check of the regression - no fragile terminal login/clicks.
     await page.goto('/pos/kitchen.html');
-    await page.waitForTimeout(2500);
     const probe = await page.evaluate(async () => {
-      // The POS mock intercepts fetch at the /pos/api prefix (see pos/js/app.js).
-      const res = await fetch('/pos/api/orders/kitchen').then((r) => r.json()).catch((e) => ({ error: String(e) }));
-      return res;
+      // Poll briefly: the mock registers on script load, which may lag the nav.
+      for (let i = 0; i < 24; i++) {
+        try {
+          const res = await fetch('/pos/api/orders/kitchen');
+          if (res.ok) return await res.json();
+        } catch {
+          /* mock not ready yet */
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return { ok: false, error: 'route never resolved' };
     });
-    expect(probe.ok, `kitchen route must not be shadowed: ${JSON.stringify(probe)}`).toBe(true);
+    expect(probe.ok, `kitchen route must resolve, not 404: ${JSON.stringify(probe)}`).toBe(true);
     expect(Array.isArray(probe.items)).toBe(true);
   });
 
@@ -43,13 +48,18 @@ test.describe('demo regressions (site v5.9.5)', () => {
     // making the whole inbox non-hit-testable on desktop.
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/sanad/inbox.html');
-    await page.waitForTimeout(3500); // fx layer boots, lenis class lands
+    const firstRow = page.locator('.snd-conv-item, [class*="conv"]').first();
+    await expect(firstRow).toBeVisible({ timeout: 20_000 });
+    // Wait for the fx layer (lenis) to actually boot - that is exactly when the
+    // regression would collapse the body. If lenis never loads (slow CDN), the
+    // collapse can't occur, so a graceful fallback keeps the test meaningful.
+    await page
+      .waitForFunction(() => document.documentElement.classList.contains('lenis'), { timeout: 8_000 })
+      .catch(() => {});
     const bodyHeight = await page.evaluate(() => document.body.getBoundingClientRect().height);
     expect(bodyHeight, 'body must not collapse under html.lenis').toBeGreaterThan(500);
-    const firstRow = page.locator('.snd-conv-item, [class*="conv"]').first();
-    await firstRow.click({ timeout: 5000 });
-    // A click must actually open the thread (any message bubble appears).
-    await expect(page.locator('[class*="msg"], [class*="thread"]').first()).toBeVisible({ timeout: 5000 });
+    await firstRow.click();
+    await expect(page.locator('[class*="msg"], [class*="thread"]').first()).toBeVisible({ timeout: 8_000 });
   });
 
   test('MES app: all accounting ledger tabs render rows (no entries.slice crash)', async ({ page }) => {
@@ -58,27 +68,25 @@ test.describe('demo regressions (site v5.9.5)', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.goto('/app/');
-    await page.waitForTimeout(3000);
-    await page.locator('a:has-text("Accounting"), [data-module="accounting"]').first().click();
-    await page.waitForTimeout(1500);
+    // Auto-waits for the sidebar to render and the link to be actionable.
+    await page.locator('a:has-text("Accounting"), [data-module="accounting"]').first().click({ timeout: 20_000 });
     for (const tab of ['Cashbook', 'AR Batches', 'AP Batches']) {
       await page.locator(`button:has-text("${tab}"), a:has-text("${tab}")`).first().click().catch(() => {});
-      await page.waitForTimeout(1200);
-      // The broken version threw before any ledger rows could render; the
-      // fixed version renders a populated table for every tab.
-      const rows = await page.locator('tbody tr:visible').count();
-      expect(rows, `${tab} must render ledger rows`).toBeGreaterThan(3);
+      // The broken version threw before any ledger rows could render; the fixed
+      // version renders a populated table. Poll instead of a fixed wait.
+      await expect
+        .poll(() => page.locator('tbody tr:visible').count(), { timeout: 10_000, message: `${tab} ledger rows` })
+        .toBeGreaterThan(3);
     }
     expect(errors.filter((e) => /entries\.slice/.test(e))).toEqual([]);
   });
 
   test('Manzil mortgage: clearing the tenure field never renders Infinity or NaN', async ({ page }) => {
     await page.goto('/property/mortgage.html');
-    await page.waitForTimeout(1000);
     const years = page.locator('#i-years');
-    await years.fill('');
-    await page.waitForTimeout(600);
-    const monthly = await page.locator('#o-monthly').textContent();
-    expect(monthly ?? '').not.toMatch(/Infinity|∞|NaN/);
+    await years.fill(''); // fill auto-waits for the input
+    await expect
+      .poll(async () => (await page.locator('#o-monthly').textContent()) ?? '', { timeout: 8_000 })
+      .not.toMatch(/Infinity|∞|NaN/);
   });
 });
