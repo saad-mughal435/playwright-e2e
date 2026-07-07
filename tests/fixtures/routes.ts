@@ -29,4 +29,5 @@ export const PROJECTS: Route[] = [
   { path: '/lahza/', name: 'Lahza journaling PWA' },
   { path: '/marsad/', name: 'Marsad dispatcher console' },
   { path: '/nabta/', name: 'Nabta HR / payroll' },
+  { path: '/property-management/', name: 'Property Management multi-role platform' },
 ];

@@ -28,6 +28,8 @@ const PAGES = [
   '/marsad/', '/marsad/console.html', '/marsad/driver.html',
   '/nabta/', '/nabta/app.html',
   '/lahza/',
+  '/property-management/', '/property-management/tenant.html', '/property-management/landlord.html',
+  '/property-management/manager.html', '/property-management/vendor.html', '/property-management/inspector.html',
 ];
 
 // Console noise that is not a site bug (third-party advisories, expected
