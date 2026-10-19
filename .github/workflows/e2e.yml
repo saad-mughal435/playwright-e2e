@@ -14,7 +14,11 @@ jobs:
   e2e:
     name: Playwright (all browsers)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 20 was enough before the wake-up step below, which can add up to 6 minutes.
+    timeout-minutes: 25
+    env:
+      # Read by playwright.config.ts and by the wake-up step, so both always mean the same host.
+      API_BASE_URL: ${{ vars.API_BASE_URL || 'https://shopfloor-api-lvb0.onrender.com' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -30,6 +34,26 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
+      # The ShopFloor API runs on Render's free tier, which stops the service after a spell of
+      # inactivity. Waking it takes far longer than an API test waits, so a sleeping service
+      # failed the whole [api] project in milliseconds and skipped the rest: a red run that said
+      # nothing about the code (2026-10-17). Wake it first, then let the tests judge what answers.
+      # Spin-up is neither quick nor consistent (measured at 64 s once and 183 s another time),
+      # hence four tries rather than one long wait. A service that stays down is still reported,
+      # by the tests themselves, so this hides an outage from nobody.
+      - name: Wake the ShopFloor API
+        run: |
+          echo "Waking $API_BASE_URL"
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 "$API_BASE_URL/actuator/health" || true)
+            if [ "$code" = "200" ]; then
+              echo "Answered 200 on attempt $attempt."
+              exit 0
+            fi
+            echo "Attempt $attempt: ${code:-no response}"
+          done
+          echo "::warning::$API_BASE_URL did not answer 200 within 6 minutes; the API tests will report what they find."
 
       - name: Run E2E tests
         run: npx playwright test
