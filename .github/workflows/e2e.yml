@@ -21,7 +21,7 @@ jobs:
       API_BASE_URL: ${{ vars.API_BASE_URL || 'https://shopfloor-api-lvb0.onrender.com' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node
         uses: actions/setup-node@v6
